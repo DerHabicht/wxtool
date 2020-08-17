@@ -1,4 +1,5 @@
 import requests
+from enum import Enum, auto
 from mgrs import MGRS
 from typing import List
 from xml.etree import ElementTree
@@ -10,29 +11,19 @@ BASE_URL = 'https://aviationweather.gov/adds/dataserver_current/httpparam'
 MAX_DISTANCE = 20
 
 
-def unpack_metars(adds_response: str) -> str:
-    root = ElementTree.fromstring(adds_response)
-    # metars = [
-    #     {
-    #         'station': x.find('station_id').text,
-    #         'time': x.find('observation_time').text,
-    #         'raw_text': x.find('raw_text').text,
-    #     }
-    #     for x in root.find('data').findall('METAR')
-    # ]
+class ReportType(Enum):
+    METAR = auto()
+    TAF = auto()
 
-    # station_ids = set()
-    # stations = []
-    # for metar in metars:
-    #     if metar['station'] not in station_ids:
-    #         station_ids.add(metar['station'])
-    #         stations.append(f'    {metar["raw_text"]}')
-    stations = [f'- {x.find("raw_text").text}' for x in root.find('data').findall('METAR')]
+
+def _unpack_response(adds_response: str, report_type: ReportType) -> str:
+    root = ElementTree.fromstring(adds_response)
+    stations = [f'- {x.find("raw_text").text}' for x in root.find('data').findall(report_type.name)]
 
     return '\n'.join(stations)
 
 
-def get_route_metars(route: List[Location]) -> str:
+def _get_waypoints(route: List[Location]) -> (List[str], str):
     converter = MGRS()
     waypoints = []
     routestr = ''
@@ -41,6 +32,12 @@ def get_route_metars(route: List[Location]) -> str:
         routestr += f'{location.coordinate} -> '
         pt = converter.toLatLon(location.coordinate)
         waypoints.append(f'{pt[1]},{pt[0]}')
+
+    return waypoints, routestr
+
+
+def get_route_metars(route: List[Location]) -> str:
+    waypoints, routestr = _get_waypoints(route)
 
     print(f'Fetching METARs for route {routestr[:-4]}...')
 
@@ -54,4 +51,22 @@ def get_route_metars(route: List[Location]) -> str:
     r = requests.get(BASE_URL, params=params)
     r.raise_for_status()
 
-    return unpack_metars(r.text)
+    return _unpack_response(r.text, ReportType.METAR)
+
+
+def get_route_tafs(route: List[Location]) -> str:
+    waypoints, routestr = _get_waypoints(route)
+
+    print(f'Fetching TAFs for route {routestr[:-4]}...')
+
+    params = {
+        'datasource': 'tafs',
+        'requestType': 'retrieve',
+        'format': 'xml',
+        'flightPath': f'{MAX_DISTANCE};{";".join(waypoints)}'
+    }
+
+    r = requests.get(BASE_URL, params=params)
+    r.raise_for_status()
+
+    return _unpack_response(r.text, ReportType.TAF)

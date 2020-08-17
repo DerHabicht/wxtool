@@ -1,4 +1,4 @@
-from adds import get_route_metars
+from adds import get_route_metars, get_route_tafs
 from forecast import get_forecast_zone, get_forecast
 from mission_profile import Mission
 from usno import get_sunrise_sunset
@@ -23,7 +23,8 @@ class Report:
                 print(f'Sortie {sortie.sortie_number} will not be included in the report.')
                 continue
 
-            sortie.route_wx = get_route_metars(sortie.route)
+            sortie.route_metars = get_route_metars(sortie.route)
+            sortie.route_tafs = get_route_tafs(sortie.route)
 
             for location in sortie.route:
                 sunrise, sunset = get_sunrise_sunset(location)
@@ -56,7 +57,8 @@ class Report:
         report = f'# Sortie {sortie.sortie_number} {{-}}\n\n'
         report += '## Route {-}\n\n| Location | Coordinate | Sunrise | Sunset |\n|--|--|--|--|\n'
         report += '\n'.join(waypoints) + '\n\n'
-        report += f'## Recent Observations {{-}}\n{sortie.route_wx}\n\n'
+        report += f'## Recent Observations {{-}}\n{sortie.route_metars}\n\n'
+        report += f'## Recent TAFs Along Route {{-}}\n{sortie.route_tafs}\n\n'
         report += '## Area Forecasts {-}\n\n' + '\n'.join(report_lines)
 
         return {'sortie': sortie.sortie_number, 'report': report}

@@ -22,7 +22,8 @@ class Sortie(yaml.YAMLObject):
 
     sortie_number = None
     route = None
-    route_wx = None
+    route_metars = None
+    route_tafs = None
 
     def __init__(self, sortie_number: str, route: List['Location']):
         self.sortie_number = sortie_number
